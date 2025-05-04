@@ -1,8 +1,10 @@
+// example
+
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
-const sendOtp = require('../utils/sendOtp');
+// const sendOtp = require('../utils/sendOtp');
 
-exports.register = async (req, res) => {
+const register = async (req, res) => {
   try {
     const { username, email, password, phone_num } = req.body;
 
@@ -58,7 +60,7 @@ exports.register = async (req, res) => {
   }
 };
 
-exports.getUsers = async (req, res) => {
+const getUsers = async (req, res) => {
     try {
       const users = await User.find().select('-password'); // ซ่อน password
       res.json(users);
@@ -67,7 +69,7 @@ exports.getUsers = async (req, res) => {
     }
 };
 
-exports.updateUser = async (req, res) => {
+const updateUser = async (req, res) => {
     try {
       const { username } = req.body;
       const updatedUser = await User.findByIdAndUpdate(
@@ -84,7 +86,7 @@ exports.updateUser = async (req, res) => {
     }
 };
 
-exports.deleteUser = async (req, res) => {
+const deleteUser = async (req, res) => {
     try {
       await User.findByIdAndDelete(req.user.userId);
       res.json({ msg: "User deleted successfully" });
@@ -93,7 +95,7 @@ exports.deleteUser = async (req, res) => {
     }
 };
 
-exports.verifyOtp = async (req, res) => {
+const verifyOtp = async (req, res) => {
     try {
       const { email, otp } = req.body;
   
@@ -118,7 +120,7 @@ exports.verifyOtp = async (req, res) => {
     }
 };
 
-exports.resendOtp = async (req, res) => {
+const resendOtp = async (req, res) => {
     try {
       const { email } = req.body;
   
@@ -140,4 +142,22 @@ exports.resendOtp = async (req, res) => {
     } catch (err) {
       res.status(500).json({ msg: "Server error" });
     }
+};
+
+const sayHello = async (req, res) => {
+  try {
+    res.json({ msg: "Hello" });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+ 
+module.exports = {
+  register,
+  resendOtp,
+  getUsers,
+  updateUser,
+  verifyOtp,
+  deleteUser,
+  sayHello
 };

@@ -1,17 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const validateToken = require('./middleware/validateToken');
 const app = express();
 
 dotenv.config();
 
 app.use(express.json());
 
-app.use('/api/users', validateToken, require('./routes/userRoutes'));
-app.use('/api/pets', validateToken, require('./routes/pets'));
-app.use('/api/posts', require('./routes/postRoutes'));
-
+// API Routes Structure - Root level
+app.use('/api', require('./routes/api'));
 
 
 const connectDB = async () => {
