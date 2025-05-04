@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const validateToken = require("../middleware/validateToken");
-const User = require('../models/user'); // <-- ใช้ schema เดิมของคุณ
+const User = require('../models/user');
 
-// สร้างผู้ใช้ใหม่
-router.post('/', async (req, res) => {
+router.post('/', validateToken, async (req, res) => {
   try {
     const newUser = new User(req.body);
     const savedUser = await newUser.save();
@@ -14,8 +13,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ดึงผู้ใช้ทั้งหมด
-router.get('/', async (req, res) => {
+router.get('/', validateToken, async (req, res) => {
   try {
     const users = await User.find();
     res.json(users);

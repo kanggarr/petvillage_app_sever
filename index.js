@@ -8,12 +8,10 @@ dotenv.config();
 
 app.use(express.json());
 
-// Routes
-app.use('/api/users', require('./routes/userRoutes')); // ปรับ path ตามจริง
-app.use('/api/pets', require('./routes/pets')); // <- เพิ่มบรรทัดนี้
+app.use('/api/users', validateToken, require('./routes/userRoutes'));
+app.use('/api/pets', validateToken, require('./routes/pets'));
 
 
-// MongoDB Connection
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/User', {
@@ -29,7 +27,7 @@ const connectDB = async () => {
 
 connectDB();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
