@@ -10,6 +10,8 @@ app.use(express.json());
 
 app.use('/api/users', validateToken, require('./routes/userRoutes'));
 app.use('/api/pets', validateToken, require('./routes/pets'));
+app.use('/api/posts', require('./routes/postRoutes'));
+
 
 
 const connectDB = async () => {
