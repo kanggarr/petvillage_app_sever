@@ -3,7 +3,7 @@ const router = express.Router();
 const validateToken = require("../middleware/validateToken");
 const User = require('../models/user');
 
-router.post('/', validateToken, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const newUser = new User(req.body);
     const savedUser = await newUser.save();
@@ -13,7 +13,7 @@ router.post('/', validateToken, async (req, res) => {
   }
 });
 
-router.get('/', validateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const users = await User.find();
     res.json(users);
