@@ -67,12 +67,6 @@ const register = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
 const login = async (req, res) => {
   try {
 
@@ -122,6 +116,42 @@ const login = async (req, res) => {
   }
 };
 
+const refreshToken = async (req, res) => {
+  try {
+
+    const { token } = req.body;
+
+    //validate input
+    if (!token?.trim()) {
+      return res.status(401).json({ msg: "ไม่พบโทเคน" });
+    }
+
+    //  Decode token 
+    const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+
+    let id=decoded.user.id
+
+    const user = await User.findById(id).select('-password')
+
+    const accessToken = jwt.sign({
+      user: {
+        username: user.username,
+        email: user.email,
+        id: user.id,
+        role:user.role
+      }
+    },
+      process.env.TOKEN_SECRET,
+      { expiresIn: "10m" }
+    );
+
+    return res.status(200).json({token:accessToken})
+   
+  } catch (error) {
+    console.error("พบปัญหาในแลกเปลี่ยนโทเคน :", error);
+    res.status(500).json({ error: error.message });
+  }
+}
 
 
 
@@ -129,4 +159,5 @@ const login = async (req, res) => {
 module.exports = {
   register,
   login,
+  refreshToken
 };
