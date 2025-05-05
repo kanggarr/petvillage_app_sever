@@ -14,10 +14,10 @@ const UserSchema = new mongoose.Schema({
       type: String,
       required: [true, "Please add password"]
     },
-    phone_num: { 
-      type: Number, 
-      required: [true, "Please enter your phone number"],
-      unique: [true, "This number is already used"]
+    role: {
+      type: String,
+      enum: ['user', 'shop'],  // ✅ Define allowed values
+      default: 'user'            // ✅ Set default value
     },
     otp: { type: String, required: false }, // เก็บ OTP ล่าสุด
     otpExpires: { type: Date, required: false }, // เวลาหมดอายุของ OTP
