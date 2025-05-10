@@ -7,23 +7,24 @@ const {
   getPetById,
   updatePet,
   deletePet,
-  upload
+  upload,
+  getProvinces,
+  getDistrictsByProvince,
+  getSubdistrictsByDistrict,
+  getBreedsByType
 } = require('../controllers/petController');
 
+// ตัวอย่างการใช้ route หลัก
+router.post('/pets', upload.array('pet_image', 5), createPet);
+router.get('/pets', getAllPets);
+router.get('/pets/:id', getPetById);
+router.put('/pets/:id', updatePet);
+router.delete('/pets/:id', deletePet);
 
-// CREATE
-router.post('/createpet', upload.array('pet_images', 10), createPet);
-
-// READ ALL
-router.get('/', getAllPets);
-
-// READ ONE
-router.get('/:id', getPetById);
-
-// UPDATE
-router.put('/:id', updatePet);
-
-// DELETE
-router.delete('/:id', deletePet);
+// 🔽 Location routes
+router.get('/locations/provinces', getProvinces);
+router.get('/locations/districts/:provinceId', getDistrictsByProvince);
+router.get('/locations/subdistricts/:districtId', getSubdistrictsByDistrict);
+router.get('/breeds/:type', getBreedsByType);
 
 module.exports = router;

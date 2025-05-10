@@ -1,5 +1,4 @@
 // example
-
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require("jsonwebtoken");
@@ -18,7 +17,6 @@ const register = async (req, res) => {
     if (!username?.trim() || !email?.trim() || !password?.trim()) {
       return res.status(400).json({ msg: "กรุณากรอกข้อมูลให้ครบถ้วน (username, email, password)" });
     }
-
 
     // เช็คอีเมล
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.(com|org|net|info|biz|edu|tech|travel|shop|news|co|io|ai|ac|gov|th|uk|us|jp|au|cn|in|co\.th|ac\.th|go\.th|or\.th|net\.th|in\.th)$/;

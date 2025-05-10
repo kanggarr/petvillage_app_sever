@@ -1,15 +1,15 @@
 const mongoose = require('mongoose');
 
-const PetBreedSchema = new mongoose.Schema({
+const breedSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
+    unique: true
   },
-  pet_type: {
+  type: {
     type: String,
-    required: true, // เช่น 'สุนัข', 'แมว'
-    enum: ['สุนัข', 'แมว', 'กระต่าย', 'แฮมสเตอร์'] // หรือปรับตามประเภทสัตว์ที่คุณรองรับ
+    required: true  // เช่น "สุนัข", "แมว", "กระต่าย", "แฮมสเตอร์"
   }
 });
 
-module.exports = mongoose.model('PetBreed', PetBreedSchema);
+module.exports = mongoose.model('Breed', breedSchema);  // ชื่อ model คือ 'Breed'
