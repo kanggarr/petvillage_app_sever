@@ -15,8 +15,8 @@ const petSchema = new mongoose.Schema({
     required: true
   },
   pet_breed: {
-    type: mongoose.Schema.Types.ObjectId,  // <-- เปลี่ยนจาก String เป็น ObjectId
-    ref: 'PetBreed',                       // <-- อ้างอิงไปที่ breed collection
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Breed',
     required: true
   },
   pet_gender: {
@@ -49,15 +49,18 @@ const petSchema = new mongoose.Schema({
     required: true
   },
   pet_province: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Province',
     required: true
   },
-  pet_distinct: {
-    type: String,
+  pet_district: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'District',
     required: true
   },
-  pet_subdistinct: {
-    type: String,
+  pet_subdistrict: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subdistrict',
     required: true
   },
   pet_shipping: {

@@ -4,12 +4,21 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// ตั้งค่าชั่วคราว: อัปโหลดไว้ใน tmp ก่อน
+// โหลดไฟล์ location JSON
+const Province = require('../models/provincemodel'); // import model
+const District = require('../models/districtmodel');
+const Subdistrict = require('../models/subdistrict');
+
+// โหลดไฟล์ breed JSON
+const breedData = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'breed.json'), 'utf-8'));
+
+// สร้างโฟลเดอร์ temp สำหรับอัปโหลดไฟล์
 const tempDir = path.join(__dirname, '..', 'uploads', 'temp');
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
+// ตั้งค่า multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, tempDir),
   filename: (req, file, cb) => {
@@ -41,27 +50,39 @@ const createPet = async (req, res) => {
       return res.status(400).json({ msg: 'กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป' });
     }
 
-    // ค้นหา ObjectId ของสายพันธุ์จากชื่อ
+    // หาสายพันธุ์
     const breedDoc = await Breed.findOne({ name: req.body.pet_breed });
     if (!breedDoc) return res.status(400).json({ msg: "ไม่พบสายพันธุ์ในระบบ" });
 
-    // สร้างข้อมูลสัตว์เลี้ยง (ยังไม่บันทึกรูป)
+    // แปลงจังหวัด/อำเภอ/ตำบลเป็น ObjectId
+    const province = await Province.findOne({ name_th: req.body.pet_province });
+    if (!province) return res.status(400).json({ msg: 'ไม่พบจังหวัดที่ระบุ' });
+
+    const district = await District.findOne({ name_th: req.body.pet_district, province_id: province.id });
+    if (!district) return res.status(400).json({ msg: 'อำเภอไม่สัมพันธ์กับจังหวัดที่เลือก' });
+
+    const subdistrict = await Subdistrict.findOne({ name_th: req.body.pet_subdistrict, district_id: district.id });
+    if (!subdistrict) return res.status(400).json({ msg: 'ตำบลไม่สัมพันธ์กับอำเภอที่เลือก' });
+
+    // เตรียมข้อมูล
     const petData = {
       ...req.body,
       pet_breed: breedDoc._id,
-      pet_image: [], // จะอัปเดตหลังจากบันทึกไฟล์
+      pet_province: province._id,
+      pet_district: district._id,
+      pet_subdistrict: subdistrict._id,
+      pet_image: [],
     };
 
     const newPet = new Pet(petData);
     await newPet.save();
 
-    // สร้างโฟลเดอร์ตาม post_id
+    // ย้ายไฟล์จาก temp ไปยังไดเรกทอรีตาม _id
     const postDir = path.join(__dirname, '..', 'uploads', newPet._id.toString());
     if (!fs.existsSync(postDir)) {
       fs.mkdirSync(postDir, { recursive: true });
     }
 
-    // ย้ายไฟล์จาก temp ไปยัง post_id folder และเปลี่ยนชื่อเป็น pic1.jpg, pic2.png, ...
     const petImages = [];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -73,7 +94,6 @@ const createPet = async (req, res) => {
       petImages.push(`/uploads/${newPet._id}/${newFileName}`);
     }
 
-    // อัปเดตชื่อรูปภาพใน document
     newPet.pet_image = petImages;
     await newPet.save();
 
@@ -125,7 +145,6 @@ const deletePet = async (req, res) => {
     const pet = await Pet.findByIdAndDelete(req.params.id);
     if (!pet) return res.status(404).json({ msg: "ไม่พบข้อมูลสัตว์เลี้ยง" });
 
-    // ลบโฟลเดอร์รูปภาพด้วย
     const petDir = path.join(__dirname, '..', 'uploads', pet._id.toString());
     if (fs.existsSync(petDir)) {
       fs.rmSync(petDir, { recursive: true, force: true });
@@ -137,11 +156,74 @@ const deletePet = async (req, res) => {
   }
 };
 
+// LOCATIONS
+// ดึงจังหวัดทั้งหมด
+const getProvinces = async (req, res) => {
+  try {
+    const provinces = await Province.find();
+    res.status(200).json(provinces);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาด", error: error.message });
+  }
+};
+
+// ดึงอำเภอจากจังหวัด
+const getDistrictsByProvince = async (req, res) => {
+  try {
+    const provinceName = req.params.provinceName;
+    const province = await Province.findOne({ name_th: provinceName });
+    if (!province) {
+      return res.status(404).json({ msg: 'ไม่พบจังหวัดที่ระบุ' });
+    }
+
+    const districts = await District.find({ province_id: province.id });
+    res.status(200).json(districts);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาด", error: error.message });
+  }
+};
+
+// ดึงตำบลจากอำเภอ
+const getSubdistrictsByDistrict = async (req, res) => {
+  try {
+    const districtName = req.params.districtName;
+    const district = await District.findOne({ name_th: districtName });
+    if (!district) {
+      return res.status(404).json({ msg: 'ไม่พบอำเภอที่ระบุ' });
+    }
+
+    const subdistricts = await Subdistrict.find({ district_id: district.id });
+    res.status(200).json(subdistricts);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาด", error: error.message });
+  }
+};
+
+// BREED BY TYPE
+const getBreedsByType = async (req, res) => {
+  try {
+    const type = req.params.type.toLowerCase();
+    const breeds = await Breed.find({ type: { $regex: new RegExp(`^${type}$`, 'i') } });
+
+    if (breeds.length === 0) {
+      return res.status(404).json({ msg: "ไม่พบสายพันธุ์สำหรับชนิดสัตว์ที่ระบุ" });
+    }
+
+    res.status(200).json(breeds);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาดในการดึงสายพันธุ์", error: error.message });
+  }
+};
+
 module.exports = {
   createPet,
   getAllPets,
   getPetById,
   updatePet,
   deletePet,
-  upload
+  upload,
+  getProvinces,
+  getDistrictsByProvince,
+  getSubdistrictsByDistrict,
+  getBreedsByType
 };
