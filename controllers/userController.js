@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await User.findById(id).select('-password'); // Exclude password
+    const user = await User.findById(id)
 
     if (!user) {
       return res.status(404).json({ msg: "User not found" });

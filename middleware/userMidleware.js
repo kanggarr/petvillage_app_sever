@@ -44,7 +44,7 @@ const validateUserPermission = asyncHandler(async (req, res, next) => {
 
 
         // Get user from token
-        const user = await User.findById(decoded.user.id).select('-password');
+        const user = await User.findById(decoded.user.id)
         
         if (!user) {
             return res.status(401).json({ 
