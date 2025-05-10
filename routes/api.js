@@ -9,5 +9,6 @@ router.use('/user',require('./userRoutes'));
 router.use('/pet',require('./petRoutes'));
 router.use('/blog', require('./blogRoutes'));
 router.use('/shop', require('./shopRoutes'));
+router.use('/filter', require('./filterRoutes'));
 
 module.exports = router;

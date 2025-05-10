@@ -1,10 +1,13 @@
 const mongoose = require('mongoose');
 
 const MessageSchema = new mongoose.Schema({
-  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  message: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  roomId: String,           // <== เพิ่มห้อง
+  sender: String,           // shop | customer หรือ user id
+  content: String,
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 module.exports = mongoose.model('Message', MessageSchema);

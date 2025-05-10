@@ -14,9 +14,12 @@ const {
   getBreedsByType
 } = require('../controllers/petController');
 
+const { filterPets } = require('../controllers/filterController');
+
 // ตัวอย่างการใช้ route หลัก
 router.post('/pets', upload.array('pet_image', 5), createPet);
 router.get('/pets', getAllPets);
+router.get('/pets/filter', filterPets); 
 router.get('/pets/:id', getPetById);
 router.put('/pets/:id', updatePet);
 router.delete('/pets/:id', deletePet);
