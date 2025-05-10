@@ -1,25 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const validateToken = require("../middleware/validateToken");
-const User = require('../models/user');
+const { validateUserPermission } = require("../middleware/userMidleware");
+const { test } = require('../controllers/userController');
 
-router.post('/', async (req, res) => {
-  try {
-    const newUser = new User(req.body);
-    const savedUser = await newUser.save();
-    res.status(201).json(savedUser);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+/**
+ * @route GET /api/user/test
+ * @desc Test endpoint (protected)
+ * @access Private - Requires authentication
+ */
+router.get('/test', validateUserPermission, test);
 
-router.get('/', async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+/**
+ * Example of how to create additional protected routes
+ * All routes below this middleware will require authentication
+ */
+// router.use(validateUserPermission);
+// router.get('/profile', getUserProfile);
+// router.put('/profile', updateUserProfile);
 
 module.exports = router;

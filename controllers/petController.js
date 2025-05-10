@@ -1,0 +1,147 @@
+const Pet = require('../models/pet');
+const Breed = require('../models/breed');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// ตั้งค่าชั่วคราว: อัปโหลดไว้ใน tmp ก่อน
+const tempDir = path.join(__dirname, '..', 'uploads', 'temp');
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, tempDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + ext;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('รองรับเฉพาะไฟล์รูปภาพ (jpg, jpeg, png)'));
+    }
+  }
+});
+
+// CREATE
+const createPet = async (req, res) => {
+  try {
+    const files = req.files;
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ msg: 'กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป' });
+    }
+
+    // ค้นหา ObjectId ของสายพันธุ์จากชื่อ
+    const breedDoc = await Breed.findOne({ name: req.body.pet_breed });
+    if (!breedDoc) return res.status(400).json({ msg: "ไม่พบสายพันธุ์ในระบบ" });
+
+    // สร้างข้อมูลสัตว์เลี้ยง (ยังไม่บันทึกรูป)
+    const petData = {
+      ...req.body,
+      pet_breed: breedDoc._id,
+      pet_image: [], // จะอัปเดตหลังจากบันทึกไฟล์
+    };
+
+    const newPet = new Pet(petData);
+    await newPet.save();
+
+    // สร้างโฟลเดอร์ตาม post_id
+    const postDir = path.join(__dirname, '..', 'uploads', newPet._id.toString());
+    if (!fs.existsSync(postDir)) {
+      fs.mkdirSync(postDir, { recursive: true });
+    }
+
+    // ย้ายไฟล์จาก temp ไปยัง post_id folder และเปลี่ยนชื่อเป็น pic1.jpg, pic2.png, ...
+    const petImages = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const ext = path.extname(file.originalname);
+      const newFileName = `pic${i + 1}${ext}`;
+      const newPath = path.join(postDir, newFileName);
+
+      fs.renameSync(file.path, newPath);
+      petImages.push(`/uploads/${newPet._id}/${newFileName}`);
+    }
+
+    // อัปเดตชื่อรูปภาพใน document
+    newPet.pet_image = petImages;
+    await newPet.save();
+
+    const petObj = newPet.toObject();
+    petObj.pet_shipping = JSON.parse(JSON.stringify(petObj.pet_shipping));
+
+    res.status(201).json({ msg: "โพสต์สัตว์เลี้ยงสำเร็จ", pet: petObj });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ msg: "ไม่สามารถสร้างโพสต์ได้", error: error.message });
+  }
+};
+
+// READ ALL
+const getAllPets = async (req, res) => {
+  try {
+    const pets = await Pet.find();
+    res.status(200).json(pets);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาดในการดึงข้อมูล", error: error.message });
+  }
+};
+
+// READ ONE
+const getPetById = async (req, res) => {
+  try {
+    const pet = await Pet.findById(req.params.id);
+    if (!pet) return res.status(404).json({ msg: "ไม่พบข้อมูลสัตว์เลี้ยง" });
+    res.status(200).json(pet);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาด", error: error.message });
+  }
+};
+
+// UPDATE
+const updatePet = async (req, res) => {
+  try {
+    const pet = await Pet.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!pet) return res.status(404).json({ msg: "ไม่พบข้อมูลสัตว์เลี้ยง" });
+    res.status(200).json({ msg: "อัปเดตข้อมูลสำเร็จ", pet });
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาดในการอัปเดต", error: error.message });
+  }
+};
+
+// DELETE
+const deletePet = async (req, res) => {
+  try {
+    const pet = await Pet.findByIdAndDelete(req.params.id);
+    if (!pet) return res.status(404).json({ msg: "ไม่พบข้อมูลสัตว์เลี้ยง" });
+
+    // ลบโฟลเดอร์รูปภาพด้วย
+    const petDir = path.join(__dirname, '..', 'uploads', pet._id.toString());
+    if (fs.existsSync(petDir)) {
+      fs.rmSync(petDir, { recursive: true, force: true });
+    }
+
+    res.status(200).json({ msg: "ลบโพสต์สำเร็จ" });
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาดในการลบ", error: error.message });
+  }
+};
+
+module.exports = {
+  createPet,
+  getAllPets,
+  getPetById,
+  updatePet,
+  deletePet,
+  upload
+};
