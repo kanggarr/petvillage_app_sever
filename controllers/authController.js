@@ -1,5 +1,3 @@
-// example
-
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require("jsonwebtoken");
@@ -131,7 +129,7 @@ const refreshToken = async (req, res) => {
 
     let id=decoded.user.id
 
-    const user = await User.findById(id).select('-password')
+    const user = await User.findById(id)
 
     const accessToken = jwt.sign({
       user: {
