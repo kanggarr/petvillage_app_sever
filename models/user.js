@@ -10,6 +10,13 @@ const UserSchema = new mongoose.Schema({
       required: [true, "Please add the email address"],
       unique: [true, "Email address is already taken"]
     },
+    name: { type: String },
+    phone: { type: String },
+    address: { type: String },
+    postCode: { type: String },
+    province: { type: String },
+    district: { type: String },
+    subDistrict: { type: String },
     password: {
       type: String,
       required: [true, "Please add password"],

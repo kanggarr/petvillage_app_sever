@@ -45,25 +45,24 @@ const validateUserPermission = asyncHandler(async (req, res, next) => {
 
         // Get user from token
         const user = await User.findById(decoded.user.id)
-        
+
         if (!user) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 success: false, 
-                message: "ไม่พบผู้ใช้งานในระบบ" 
+                message: "ไม่พบผู้ใช้งานในระบบ"
             });
         }
         if (user.role !== "user" && user.role !== "shop") {
             return res.status(403).json({ 
                 success: false, 
-                message: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลส่วนนี้" 
+                message: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลส่วนนี้"
             });
         }
         // Set user in request object
         req.user = decoded.user;
-        
-        
+
         next();
-        
+
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
             return res.status(401).json({ 

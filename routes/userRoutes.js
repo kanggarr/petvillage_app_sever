@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { validateUserPermission } = require("../middleware/userMidleware");
-const { test } = require('../controllers/userController');
+const { validateUserPermission } = require("../middleware/userMiddleware");
+const { test, getCurrentUserProfile } = require('../controllers/userController');
 
 /**
  * @route GET /api/user/test
@@ -10,12 +10,9 @@ const { test } = require('../controllers/userController');
  */
 router.get('/test', validateUserPermission, test);
 
-/**
- * Example of how to create additional protected routes
- * All routes below this middleware will require authentication
- */
-// router.use(validateUserPermission);
-// router.get('/profile', getUserProfile);
+// All routes below this middleware will require authentication
+router.use(validateUserPermission);
+router.get('/profile', getCurrentUserProfile);
 // router.put('/profile', updateUserProfile);
 
 module.exports = router;
