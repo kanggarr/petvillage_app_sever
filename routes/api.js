@@ -10,5 +10,7 @@ router.use('/pet',require('./petRoutes'));
 router.use('/blog', require('./blogRoutes'));
 router.use('/shop', require('./shopRoutes'));
 router.use('/filter', require('./filterRoutes'));
+router.use('/message', require('./messageRoutes'));
+router.use('/favorites', require('./favoriteRoutes'));
 
 module.exports = router;

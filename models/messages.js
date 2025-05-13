@@ -1,13 +1,12 @@
 const mongoose = require('mongoose');
 
-const MessageSchema = new mongoose.Schema({
-  roomId: String,           // <== เพิ่มห้อง
-  sender: String,           // shop | customer หรือ user id
-  content: String,
-  timestamp: {
-    type: Date,
-    default: Date.now
-  }
+const messageSchema = new mongoose.Schema({
+  roomId: { type: String, required: true, trim: true },
+  sender: { type: String, required: true, trim: true },
+  content: { type: String, required: true, trim: true },
+  timestamp: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Message', MessageSchema);
+messageSchema.index({ roomId: 1, timestamp: -1 });
+
+module.exports = mongoose.model('Message', messageSchema);
