@@ -2,10 +2,12 @@
 const express = require('express');
 const router = express.Router();
 
+const { validateUserPermission } = require('../middleware/userMiddleware');
+
 // Sub-routes
 // router.use('/users', validateToken, require('./userRoutes'));
 router.use('/auth', require('./authRoutes'));
-router.use('/user',require('./userRoutes'));
+router.use('/users', validateUserPermission, require('./userRoutes'));
 router.use('/pet',require('./petRoutes'));
 router.use('/blog', require('./blogRoutes'));
 router.use('/shop', require('./shopRoutes'));

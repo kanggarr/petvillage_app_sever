@@ -98,6 +98,25 @@ const resendOtp = async (req, res) => {
   }
 };
 
+const getCurrentUserProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return res.status(404).json({ msg: 'ไม่พบผู้ใช้งาน' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("getCurrentUserProfile error:", error);
+    res.status(500).json({ msg: 'เกิดข้อผิดพลาดในฝั่งเซิร์ฟเวอร์' });
+  }
+};
+
+
+
 module.exports = {
-  test
+  test,
+  getCurrentUserProfile
 };
