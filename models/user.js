@@ -29,7 +29,13 @@ const UserSchema = new mongoose.Schema({
     },
     otp: { type: String, required: false }, // เก็บ OTP ล่าสุด
     otpExpires: { type: Date, required: false }, // เวลาหมดอายุของ OTP
-    isVerified: { type: Boolean, default: false } // สถานะยืนยันบัญชี
+    isVerified: { type: Boolean, default: false }, // สถานะยืนยันบัญชี
+    // ✅ เพิ่ม field นี้ เพื่อใช้เก็บห้องแชท
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Room', // หรือเปลี่ยนเป็น 'ChatRoom' ถ้า model ของคุณใช้ชื่อนั้น
+      required: false
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

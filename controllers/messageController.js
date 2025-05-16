@@ -1,4 +1,6 @@
 const Message = require('../models/messages');
+const User = require('../models/user');     // ✅ ต้อง import
+const Shop = require('../models/shop');     // ✅ ต้อง import
 
 const getMessagesRoomByUser = async (req, res) => {
   try {
@@ -18,13 +20,24 @@ const getMessagesRoomByUser = async (req, res) => {
 
 const createMessage = async (req, res) => {
   try {
-    const { roomId, sender, content } = req.body;
+    const { roomId, sender, senderType, content } = req.body;
 
-    if (!roomId || !sender || !content) {
+    if (!roomId || !sender || !senderType || !content) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const newMessage = new Message({ roomId, sender, content });
+    // ตรวจสอบ sender ว่ามีอยู่ในระบบไหม
+    if (senderType === 'User') {
+      const user = await User.findOne({ username: sender });
+      if (!user) return res.status(400).json({ error: 'User not found' });
+    } else if (senderType === 'Shop') {
+      const shop = await Shop.findOne({ shopName: sender });
+      if (!shop) return res.status(400).json({ error: 'Shop not found' });
+    } else {
+      return res.status(400).json({ error: 'Invalid senderType' });
+    }
+
+    const newMessage = new Message({ roomId, sender, senderType, content });
     const saved = await newMessage.save();
 
     res.status(201).json(saved);
@@ -33,6 +46,7 @@ const createMessage = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 const getLatestMessageByRoom = async (req, res) => {
   try {

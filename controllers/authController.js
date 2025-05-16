@@ -205,7 +205,21 @@ const login = async (req, res) => {
       process.env.TOKEN_SECRET,
       { expiresIn: "1d" }
       );
-      return res.json({ token: accessToken,refreshToken:refreshToken});
+       // ✅ ส่ง user object (ตัด password) และ roomId กลับไปให้ client
+      const userResponse = {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      };
+
+      return res.status(200).json({
+        msg: "เข้าสู่ระบบสำเร็จ",
+        token: accessToken,
+        refreshToken: refreshToken,
+        user: userResponse,
+        roomId: user.roomId, // 🟢 ต้องแน่ใจว่า user มี field ชื่อ roomId
+      });
     } else {
       return res.status(401).json({ msg: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" });
     }
