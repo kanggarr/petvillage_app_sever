@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require("jsonwebtoken");
 const crypto = require('crypto');
 const nodemailer = require("nodemailer");
+const { log } = require('console');
 
 // const sendOtp = require('../utils/sendOtp');
 
@@ -77,7 +78,17 @@ const register = async (req, res) => {
       `
     };
 
-    await transporter.sendMail(mailOptions);
+    console.log(otp);
+    
+
+    //  email sender
+    if(Boolean(process.env.ENABLE_EMAIL)){
+
+      await transporter.sendMail(mailOptions);
+
+    }
+   
+
 
     return res.status(200).json({ msg: "ส่งรหัส OTP ไปยังอีเมลแล้ว กรุณายืนยัน" });
 
