@@ -226,6 +226,15 @@ const getBreedsByType = async (req, res) => {
   }
 };
 
+const getAllPetTypes = async (req, res) => {
+  try {
+    const petTypes = await Breed.distinct('type');
+    res.status(200).json(petTypes);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาดในการดึงชนิดของสัตว์", error: error.message });
+  }
+};
+
 module.exports = {
   createPet,
   getAllPets,
@@ -236,5 +245,6 @@ module.exports = {
   getProvinces,
   getDistrictsByProvince,
   getSubdistrictsByDistrict,
-  getBreedsByType
+  getBreedsByType,
+  getAllPetTypes
 };

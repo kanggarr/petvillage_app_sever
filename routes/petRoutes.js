@@ -11,7 +11,8 @@ const {
   getProvinces,
   getDistrictsByProvince,
   getSubdistrictsByDistrict,
-  getBreedsByType
+  getBreedsByType,
+  getAllPetTypes
 } = require('../controllers/petController');
 
 const { filterPets } = require('../controllers/filterController');
@@ -29,5 +30,6 @@ router.get('/locations/provinces', getProvinces);
 router.get('/locations/districts/:provinceId', getDistrictsByProvince);
 router.get('/locations/subdistricts/:districtId', getSubdistrictsByDistrict);
 router.get('/breeds/:type', getBreedsByType);
+router.get('/types', getAllPetTypes);
 
 module.exports = router;
