@@ -10,7 +10,6 @@ router.use('/auth', require('./authRoutes'));
 router.use('/users', validateUserPermission, require('./userRoutes'));
 router.use('/pet',require('./petRoutes'));
 router.use('/blog', require('./blogRoutes'));
-router.use('/shop', require('./shopRoutes'));
 router.use('/filter', require('./filterRoutes'));
 router.use('/chat', require('./messageRoutes'));
 router.use('/favorites', require('./favoriteRoutes'));

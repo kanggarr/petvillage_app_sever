@@ -86,7 +86,7 @@ const createChatRoom = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    const shop = await Shop.findById(shopId);
+    const shop = await User.findById(shopId);
     if (!shop) {
       return res.status(404).json({ error: 'Shop not found' });
     }
@@ -134,7 +134,7 @@ const getChatRoomByUser = async (req, res) => {
     }
 
     const rooms = await Chatroom.find({ user: userId })
-      .populate({path: 'shop', select: 'shopName id'}) // เติมข้อมูลร้านค้า
+      .populate({path: 'user', select: 'username id'}) // เติมข้อมูลร้านค้า
       .sort({ updatedAt: -1 });
 
     res.json(rooms);

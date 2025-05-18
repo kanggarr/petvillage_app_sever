@@ -32,43 +32,7 @@ const tempShopSchema = new mongoose.Schema({
 const TempShop = mongoose.model('TempShop', tempShopSchema);
 
 // 📩 สมัครร้านค้า (ยังไม่ลง DB หลัก)
-const registerShop = async (req, res) => {
-  try {
-    const { shopName, email, password, address, shop_province, shop_district, shop_subdistrict } = req.body;
-    const file = req.file;
 
-    if (!shopName || !email || !password || !address || !shop_province || !shop_district || !shop_subdistrict || !file) {
-      return res.status(400).json({ msg: 'กรุณากรอกข้อมูลและอัปโหลดไฟล์ให้ครบถ้วน' });
-    }
-
-    const existingShop = await Shop.findOne({ email });
-    const existingTemp = await TempShop.findOne({ email });
-    if (existingShop || existingTemp) {
-      return res.status(400).json({ msg: 'อีเมลนี้ถูกใช้งานแล้ว' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const tempShop = new TempShop({
-      shopName,
-      email,
-      password: hashedPassword,
-      address,
-      shop_province,
-      shop_district,
-      shop_subdistrict,
-      businessLicensePath: file.path
-    });
-
-    await tempShop.save();
-
-    return res.status(200).json({ msg: 'สมัครร้านค้าเรียบร้อยแล้ว กรุณารอการอนุมัติจากแอดมิน' });
-
-  } catch (err) {
-    console.error('เกิดข้อผิดพลาดในการสมัครร้าน:', err);
-    return res.status(500).json({ msg: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
-  }
-};
 
 // 🔑 ล็อกอินร้านค้า
 const loginShop = async (req, res) => {
