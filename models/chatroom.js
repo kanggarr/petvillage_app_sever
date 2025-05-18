@@ -18,7 +18,7 @@ const chatRoomSchema = new Schema({
 
     shop: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Shop',
+        ref: 'User',
         required: true
     },
 

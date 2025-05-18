@@ -134,7 +134,8 @@ const getChatRoomByUser = async (req, res) => {
     }
 
     const rooms = await Chatroom.find({ user: userId })
-      .populate({path: 'user', select: 'username id'}) // เติมข้อมูลร้านค้า
+      .populate({path: 'user', select: 'username id'})
+      .populate({path: 'shop', select: 'username id'}) // เติมข้อมูลร้านค้า
       .sort({ updatedAt: -1 });
 
     res.json(rooms);
@@ -160,7 +161,8 @@ const getChatRoomByShop = async (req, res) => {
     }
 
     const rooms = await Chatroom.find({ shop: shopId })
-      .populate({ path: 'user', select: 'username id' }) // เติมข้อมูลผู้ใช้
+      .populate({path: 'user', select: 'username id'})
+      .populate({path: 'shop', select: 'username id'}) // เติมข้อมูลร้านค้า
       .sort({ updatedAt: -1 });
 
     res.json(rooms);
