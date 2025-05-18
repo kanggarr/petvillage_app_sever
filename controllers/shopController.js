@@ -42,27 +42,36 @@ const registerShop = async (req, res) => {
     }
 
     const existingShop = await Shop.findOne({ email });
-    const existingTemp = await TempShop.findOne({ email });
-    if (existingShop || existingTemp) {
+    if (existingShop) {
       return res.status(400).json({ msg: 'อีเมลนี้ถูกใช้งานแล้ว' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const tempShop = new TempShop({
+    // 🔍 ค้นหา ObjectId ของจังหวัด / เขต / แขวง
+    const provinceDoc = await Province.findOne({ name_th: shop_province });
+    const districtDoc = await District.findOne({ name_th: shop_district });
+    const subdistrictDoc = await Subdistrict.findOne({ name_th: shop_subdistrict });
+
+    if (!provinceDoc || !districtDoc || !subdistrictDoc) {
+      return res.status(400).json({ msg: 'ไม่พบข้อมูลที่อยู่ที่เลือก' });
+    }
+
+    const newShop = new Shop({
       shopName,
       email,
       password: hashedPassword,
       address,
-      shop_province,
-      shop_district,
-      shop_subdistrict,
-      businessLicensePath: file.path
+      shop_province: provinceDoc._id,
+      shop_district: districtDoc._id,
+      shop_subdistrict: subdistrictDoc._id,
+      businessLicensePath: file.path,
+      role : 'shop'
     });
 
-    await tempShop.save();
+    await newShop.save();
 
-    return res.status(200).json({ msg: 'สมัครร้านค้าเรียบร้อยแล้ว กรุณารอการอนุมัติจากแอดมิน' });
+    return res.status(201).json({ msg: 'สร้างบัญชีร้านค้าสำเร็จแล้ว' });
 
   } catch (err) {
     console.error('เกิดข้อผิดพลาดในการสมัครร้าน:', err);

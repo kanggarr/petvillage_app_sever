@@ -36,10 +36,9 @@ const ShopSchema = new mongoose.Schema({
     type: [String],
     required: true // ต้องอัปโหลด
   },
-  status: {
+  role: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending' // รอแอดมินอนุมัติ
+    default: 'shop'
   }
 }, { timestamps: true });
 
