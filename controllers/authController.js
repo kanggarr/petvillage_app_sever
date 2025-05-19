@@ -1,24 +1,51 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
 const User = require('../models/user');
+const Shop = require('../models/shop');
+const Province = require('../models/provincemodel');
+const District = require('../models/districtmodel');
+const Subdistrict = require('../models/subdistrict');
+const TempUser = require('../models/tempuser');
 const ForgetPassword = require('../models/forgetpassword');
 const resetOTP = require('../models/resetOTP');
 const bcrypt = require('bcryptjs');
 const jwt = require("jsonwebtoken");
-const crypto = require('crypto');
 const nodemailer = require("nodemailer");
+const multer = require('multer');
+const path = require('path');
+const { log } = require('console');
+const mongoose = require('mongoose');
 
-// const sendOtp = require('../utils/sendOtp');
 
-const tempUserSchema = new mongoose.Schema({
-  username: String,
-  email: String,
-  password: String,
-  otp: String,
-  otpExpires: Date,
-}, { timestamps: true });
 
-const TempUser = mongoose.model('TempUser', tempUserSchema);
+// Multer สำหรับอัปโหลดไฟล์
+const storage = multer.diskStorage({
+  // โฟลเดอร์ปลายทาง
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/businessLicense/');
+  },
+  // สร้างชื่อไฟล์ พร้อมต่อ .extension
+  filename: (req, file, cb) => {
+    // เอานามสกุลจากไฟล์ต้นฉบับ
+    const ext = path.extname(file.originalname); // เช่น '.jpg'
+    // ตั้งชื่อไฟล์: fieldname-timestamp.ext
+    const filename = `${file.fieldname}-${Date.now()}${ext}`;
+    cb(null, filename);
+  },
+});
+
+
+const imageFilter = (req, file, cb) => {
+  if (!file.mimetype.startsWith('image/')) {
+    return cb(new Error('Only image files are allowed!'), false);
+  }
+  cb(null, true);
+};
+
+const upload = multer({ storage })
+
+const uploadSingle = upload.single('businessLicense');
+
+
 
 // 📤 Email sender setup
 const transporter = nodemailer.createTransport({
@@ -77,7 +104,16 @@ const register = async (req, res) => {
       `
     };
 
-    await transporter.sendMail(mailOptions);
+
+
+    //  email sender
+    if (Boolean(process.env.ENABLE_EMAIL)) {
+
+      await transporter.sendMail(mailOptions);
+
+    }
+
+
 
     return res.status(200).json({ msg: "ส่งรหัส OTP ไปยังอีเมลแล้ว กรุณายืนยัน" });
 
@@ -86,6 +122,112 @@ const register = async (req, res) => {
     return res.status(500).json({ msg: "Server error" });
   }
 };
+
+const registerShop = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+
+    // 1. ดึง input parameters
+    const {
+      shopName,
+      email,
+      password,
+      address,
+      shop_province,
+      shop_district,
+      shop_subdistrict
+    } = req.body;
+    const file = req.file;
+
+    // 2. validate input
+    if (
+      !shopName?.trim() ||
+      !email?.trim() ||
+      !password?.trim() ||
+      !address?.trim() ||
+      !shop_province?.trim() ||
+      !shop_district?.trim() ||
+      !shop_subdistrict?.trim() ||
+      !file
+    ) {
+      return res
+        .status(400)
+        .json({ msg: 'กรุณากรอกข้อมูลและอัปโหลดไฟล์ให้ครบถ้วน' });
+    }
+
+    const emailRegex =
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ msg: 'อีเมลไม่ถูกต้อง' });
+    }
+
+    // 3. เช็คซ้ำ email หรือ shopName
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username: shopName }],
+    });
+
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ msg: 'มีผู้ใช้งานหรือชื่อร้านค้านี้อยู่แล้ว' });
+    }
+
+    const province = await Province.findOne({ name_th: shop_province });
+    if (!province) {
+      return res.status(400).json({ msg: 'ไม่พบจังหวัดนี้' });
+    }
+    const district = await District.findOne({ name_th: shop_district });
+    if (!district) {
+      return res.status(400).json({ msg: 'ไม่พบอำเภอนี้' });
+    }
+    const subdistrict = await Subdistrict.findOne({ name_th: shop_subdistrict });
+    if (!subdistrict) {
+      return res.status(400).json({ msg: 'ไม่พบตำบลนี้' });
+    }
+
+    // 4. แฮชพาสเวิร์ด
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 2. สร้าง User ใน transaction
+    const newUser = await User.create([{
+      username: shopName,
+      email,
+      password: hashedPassword,
+      isVerified: false,
+      role: 'shop',
+    }], { session });
+
+    // 3. สร้าง Shop ใน transaction
+    await Shop.create([{
+      owner: newUser[0]._id,
+      shopName,
+      email,
+      address,
+      shop_province: province,
+      shop_district: district,
+      shop_subdistrict: subdistrict,
+      businessLicensePath: file.path,
+      isApproved: false,
+    }], { session });
+
+    // 4. commit ถ้าทุกอย่างผ่าน
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      msg: 'สมัครร้านค้าเรียบร้อยแล้ว กรุณารอการอนุมัติจากแอดมิน',
+    });
+  } catch (err) {
+    // ถ้ามี error ให้ abort transaction
+    await session.abortTransaction();
+    session.endSession();
+    console.error('เกิดข้อผิดพลาดในการสมัครร้าน:', err);
+    return res.status(500).json({ msg: 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์' });
+  }
+};
+
 
 const verifyOTP = async (req, res) => {
   try {
@@ -182,30 +324,34 @@ const login = async (req, res) => {
       return res.status(400).json({ msg: "ไม่พบบัญชีที่อยู่อีเมลนี้" });
     }
 
-    console.log('user.password =', user.password);
+
 
     //compare password with hashedpassword
     if (user && (await bcrypt.compare(password, user.password))) {
+      if (user.role == 'shop' && !user.isVerified) {
+        return res.status(403).json({ msg: "บัญชีร้านค้าของคุณยังไม่ได้รับการอนุมัติจากแอดมิน" });
+      }
       const accessToken = jwt.sign({
         user: {
           username: user.username,
           email: user.email,
           id: user.id,
-          role:user.role
+          role: user.role
         }
       },
         process.env.TOKEN_SECRET,
         { expiresIn: "10m" }
       );
       const refreshToken = jwt.sign({
-          user: {
-              id: user.id,
-              role:"refresh"
-          }}, 
-      process.env.TOKEN_SECRET,
-      { expiresIn: "1d" }
+        user: {
+          id: user.id,
+          role: "refresh"
+        }
+      },
+        process.env.TOKEN_SECRET,
+        { expiresIn: "1d" }
       );
-       // ✅ ส่ง user object (ตัด password) และ roomId กลับไปให้ client
+      // ✅ ส่ง user object (ตัด password) และ roomId กลับไปให้ client
       const userResponse = {
         _id: user._id,
         username: user.username,
@@ -242,7 +388,7 @@ const refreshToken = async (req, res) => {
     //  Decode token 
     const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
 
-    let id=decoded.user.id
+    let id = decoded.user.id
 
     const user = await User.findById(id)
 
@@ -251,15 +397,15 @@ const refreshToken = async (req, res) => {
         username: user.username,
         email: user.email,
         id: user.id,
-        role:user.role
+        role: user.role
       }
     },
       process.env.TOKEN_SECRET,
       { expiresIn: "10m" }
     );
 
-    return res.status(200).json({token:accessToken})
-   
+    return res.status(200).json({ token: accessToken })
+
   } catch (error) {
     console.error("พบปัญหาในแลกเปลี่ยนโทเคน :", error);
     res.status(500).json({ error: error.message });
@@ -289,7 +435,7 @@ const forgetPassword = async (req, res) => {
           <br><br> โปรดนำรหัส (OTP) ด้านล่างนี้เพื่อยืนยันอีเมลของคุณ (รหัสนี้จะหมดอายุใน <b>5 นาที</b>)</p>
         <h3>&nbsp; &nbsp; &nbsp;รหัส (OTP) คือ ${otp}</h3> <br>
         <p>หากท่านมีข้อสงสัย กรุณาติดต่อเราที่ contact@pet_village.com หรือหมายเลขโทรศัพท์ 02-339-4200</p>`
-      });
+    });
 
     return res.status(200).json({ message: 'ส่ง OTP ไปยังอีเมลของคุณแล้ว' });
 
@@ -345,11 +491,13 @@ const resetPassword = async (req, res) => {
 
 module.exports = {
   register,
+  registerShop,
   verifyOTP,
   resendOTP,
   login,
   refreshToken,
   forgetPassword,
   verifyResetOTP,
-  resetPassword
+  resetPassword,
+  uploadSingle
 };

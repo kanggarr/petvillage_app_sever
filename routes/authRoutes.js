@@ -10,11 +10,14 @@ const {
   forgetPassword,
   resetPassword,
   verifyResetOTP,
-  resendOTP
+  resendOTP,
+  registerShop,
+  uploadSingle
 } = require('../controllers/authController');
 
 // Public routes (ไม่ต้องการ authentication)
 router.post('/register', register);
+router.post('/register/shop',uploadSingle, registerShop);
 router.post('/verify', verifyOTP);
 router.post('/resend', resendOTP);
 router.post('/login', login);

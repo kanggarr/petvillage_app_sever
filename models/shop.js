@@ -5,14 +5,6 @@ const ShopSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  email: {
-    type: String,
-    required: true
-  },
-  password: {
-    type: String,
-    required: true
-  },
   address: {
     type: String,
     required: true
@@ -30,6 +22,11 @@ const ShopSchema = new mongoose.Schema({
   shop_subdistrict: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subdistrict',
+    required: true
+  },
+  owner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true
   },
   businessLicense: {

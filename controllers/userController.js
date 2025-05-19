@@ -24,7 +24,26 @@ const test = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    const { username } = req.params;
+    const { username } = req.body; // แก้จาก req.params เป็น req.body
+
+    const currentUser = await User.findById(req.user.userId);
+    if (!currentUser) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+
+    if (currentUser.username === username) {
+      return res.status(400).json({ msg: "Username must be different from the current one" });
+    }
+
+    const existingUser = await User.findOne({
+      username,
+      _id: { $ne: req.user.userId },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ msg: "Username already in use by another user" });
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       req.user.userId,
       { username },
@@ -38,6 +57,44 @@ const updateUser = async (req, res) => {
     res.status(500).json({ msg: "Server error" });
   }
 };
+
+
+const updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ msg: "All password fields are required" });
+    }
+
+    const user = await User.findById(req.user.userId).select("+password");
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ msg: "Current password is incorrect" });
+    }
+
+    if (newPassword === currentPassword) {
+      return res.status(400).json({ msg: "New password must be different from current password" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ msg: "Passwords do not match" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ msg: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
 
 const deleteUser = async (req, res) => {
   try {
@@ -118,5 +175,7 @@ const getCurrentUserProfile = async (req, res) => {
 
 module.exports = {
   test,
-  getCurrentUserProfile
+  getCurrentUserProfile,
+  updateUser,
+  updatePassword
 };
