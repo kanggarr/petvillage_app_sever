@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetVillage - Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        }
+
+        .card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.9);
+        }
+    </style>
+</head>
+
+<body class="login-container flex items-center justify-center p-4">
+    <div class="card w-full max-w-md rounded-xl shadow-2xl overflow-hidden">
+        <div class="p-8">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">Welcome Back!</h1>
+                <p class="text-gray-600 mt-2">Sign in to your PetVillage account</p>
+            </div>
+
+            <form id="loginForm" class="space-y-6">
+                <div id="errorMessage" class="hidden p-3 bg-red-100 border border-red-400 text-red-700 rounded"></div>
+
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="email" name="email" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your email">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center">
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <a href="/forgot-password" class="text-sm text-blue-600 hover:text-blue-500">Forgot
+                            password?</a>
+                    </div>
+                    <input type="password" id="password" name="password" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your password">
+                </div>
+
+                <div class="flex items-center">
+                    <input id="remember-me" name="remember-me" type="checkbox"
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="remember-me" class="ml-2 block text-sm text-gray-700">
+                        Remember me
+                    </label>
+                </div>
+
+                <div>
+                    <button type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Sign in
+                    </button>
+                </div>
+            </form>
+
+
+        </div>
+
+        <div class="bg-gray-50 px-8 py-4 border-t border-gray-200">
+            <p class="text-xs text-gray-500 text-center">
+                &copy; 2025 PetVillage. All rights reserved.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
+            const errorElement = document.getElementById('errorMessage');
+
+            // Basic validation
+            if (!email || !password) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.msg || 'Login failed');
+                }
+
+                // Save token and user data to localStorage
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                    // Redirect to chat or dashboard
+                    const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/chat';
+                    window.location.href = redirectTo;
+                }
+
+            } catch (error) {
+                console.error('Login error:', error);
+                showError(error.message || 'An error occurred during login');
+            }
+        });
+
+        function showError(message) {
+            const errorElement = document.getElementById('errorMessage');
+            errorElement.textContent = message;
+            errorElement.classList.remove('hidden');
+
+            // Hide error after 5 seconds
+            setTimeout(() => {
+                errorElement.classList.add('hidden');
+            }, 5000);
+        }
+
+    </script>
+</body>
+
+</html>

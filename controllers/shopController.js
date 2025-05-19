@@ -15,7 +15,7 @@ const Province = require('../models/provincemodel');
 const District = require('../models/districtmodel');
 const Subdistrict = require('../models/subdistrict');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+const TOKEN_SECRET = process.env.TOKEN_SECRET || 'your_jwt_secret';
 
 // ⚠️ TempShop Model สำหรับเก็บข้อมูลร้านที่รออนุมัติจากแอดมิน
 const tempShopSchema = new mongoose.Schema({
@@ -97,7 +97,7 @@ const loginShop = async (req, res) => {
     const isMatch = await bcrypt.compare(password, shop.password);
     if (!isMatch) return res.status(401).json({ msg: 'รหัสผ่านไม่ถูกต้อง' });
 
-    const token = jwt.sign({ shopId: shop._id, role: 'shop' }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ shopId: shop._id, role: 'shop' }, TOKEN_SECRET, { expiresIn: '7d' });
 
     res.json({
       token,

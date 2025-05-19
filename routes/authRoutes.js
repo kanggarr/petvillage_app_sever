@@ -1,6 +1,7 @@
 // example
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../middleware/auth');
 
 const { 
   register,
@@ -26,5 +27,9 @@ router.post('/forgotpassword', forgetPassword);
 router.post('/verifyReset', verifyResetOTP);
 router.post('/resetpassword', resetPassword);
 
+// Protected route - requires authentication
+router.get('/me', authenticate, (req, res) => {
+  res.json(req.user);
+});
 
 module.exports = router;
