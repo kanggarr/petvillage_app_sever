@@ -50,6 +50,10 @@ const createPet = async (req, res) => {
       return res.status(400).json({ msg: 'กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป' });
     }
 
+    // หาประเภทสัตว์ (เป็น string)
+    const petType = req.body.pet_type;
+    if (!petType) return res.status(400).json({ msg: 'กรุณาระบุประเภทสัตว์' });
+
     // หาสายพันธุ์
     const breedDoc = await Breed.findOne({ name: req.body.pet_breed });
     if (!breedDoc) return res.status(400).json({ msg: "ไม่พบสายพันธุ์ในระบบ" });
@@ -66,18 +70,26 @@ const createPet = async (req, res) => {
 
     // เตรียมข้อมูล
     const petData = {
-      ...req.body,
+      pet_name: req.body.pet_name,
+      pet_type: petType,
       pet_breed: breedDoc._id,
+      pet_gender: req.body.pet_gender,
+      pet_age: Number(req.body.pet_age),
+      pet_description: req.body.pet_description,
+      pet_price: Number(req.body.pet_price),
+      pet_is_adoptable: req.body.pet_is_adoptable === 'true' || req.body.pet_is_adoptable === true,
+      pet_address: req.body.pet_address,
       pet_province: province._id,
       pet_district: district._id,
       pet_subdistrict: subdistrict._id,
+      pet_shipping: req.body.pet_shipping,
       pet_image: [],
     };
 
     const newPet = new Pet(petData);
     await newPet.save();
 
-    // ย้ายไฟล์จาก temp ไปยังไดเรกทอรีตาม _id
+    // สร้างโฟลเดอร์อัปโหลดและย้ายรูป
     const postDir = path.join(__dirname, '..', 'uploads', newPet._id.toString());
     if (!fs.existsSync(postDir)) {
       fs.mkdirSync(postDir, { recursive: true });
@@ -98,9 +110,8 @@ const createPet = async (req, res) => {
     await newPet.save();
 
     const petObj = newPet.toObject();
-    petObj.pet_shipping = JSON.parse(JSON.stringify(petObj.pet_shipping));
-
     res.status(201).json({ msg: "โพสต์สัตว์เลี้ยงสำเร็จ", pet: petObj });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ msg: "ไม่สามารถสร้างโพสต์ได้", error: error.message });
@@ -215,6 +226,15 @@ const getBreedsByType = async (req, res) => {
   }
 };
 
+const getAllPetTypes = async (req, res) => {
+  try {
+    const petTypes = await Breed.distinct('type');
+    res.status(200).json(petTypes);
+  } catch (error) {
+    res.status(500).json({ msg: "เกิดข้อผิดพลาดในการดึงชนิดของสัตว์", error: error.message });
+  }
+};
+
 module.exports = {
   createPet,
   getAllPets,
@@ -225,5 +245,6 @@ module.exports = {
   getProvinces,
   getDistrictsByProvince,
   getSubdistrictsByDistrict,
-  getBreedsByType
+  getBreedsByType,
+  getAllPetTypes
 };

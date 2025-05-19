@@ -37,34 +37,40 @@ const upload = multer({
 const createBlog = async (req, res) => {
   try {
     const { title_name, description } = req.body;
-    const image = req.file;
+    const images = req.files;
 
-    if (!title_name || !description || !image) {
+    if (!title_name || !description || !images || images.length === 0) {
       return res.status(400).json({ message: 'กรุณาระบุข้อมูลให้ครบถ้วน' });
     }
 
-    // 1. สร้าง blog entry ก่อน เพื่อเอา _id
-    const newBlog = new Blog({ title_name, description, image_url: '' });
+    // 1. สร้าง blog entry เพื่อเอา _id มาก่อน
+    const newBlog = new Blog({ title_name, description, images_url: [] });
     await newBlog.save();
 
-    // 2. สร้าง path upload/<post_id>
+    // 2. สร้างโฟลเดอร์ /uploads/<blogId>
     const blogId = newBlog._id.toString();
     const blogUploadDir = path.join(__dirname, '..', 'uploads', blogId);
     if (!fs.existsSync(blogUploadDir)) {
       fs.mkdirSync(blogUploadDir, { recursive: true });
     }
 
-    // 3. เปลี่ยนชื่อไฟล์ -> pic1.<ext>
-    const ext = path.extname(image.originalname);
-    const newFileName = `pic1${ext}`;
-    const newFilePath = path.join(blogUploadDir, newFileName);
+    // 3. ย้ายไฟล์ + ตั้งชื่อ pic1, pic2, ...
+    const imageUrls = [];
 
-    // 4. ย้ายไฟล์จาก temp ไปยัง path ใหม่
-    const oldFilePath = image.path;
-    fs.renameSync(oldFilePath, newFilePath);
+    images.forEach((file, index) => {
+      const ext = path.extname(file.originalname);
+      const newFileName = `pic${index + 1}${ext}`;
+      const newFilePath = path.join(blogUploadDir, newFileName);
 
-    // 5. อัปเดต image_url
-    newBlog.image_url = `/uploads/${blogId}/${newFileName}`;
+      // ย้ายไฟล์จาก temp ไปยังโฟลเดอร์เป้าหมาย
+      fs.renameSync(file.path, newFilePath);
+
+      // เก็บ URL ลง array
+      imageUrls.push(`/uploads/${blogId}/${newFileName}`);
+    });
+
+    // 4. อัปเดต images_url ใน blog
+    newBlog.images_url = imageUrls;
     await newBlog.save();
 
     res.status(201).json({ message: 'สร้างบล็อกสำเร็จ', blog: newBlog });
