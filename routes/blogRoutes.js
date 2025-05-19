@@ -5,7 +5,7 @@ const { upload, createBlog, getAllBlogs, getBlogImage } = require('../controller
 
 
 // ✅ Routes
-router.post('/create', upload.single('image'), createBlog);
+router.post('/create', upload.array('images'), createBlog);
 router.get('/', getAllBlogs);
 router.get('/image/:filename', getBlogImage);
 
