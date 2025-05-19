@@ -604,7 +604,61 @@ const getRoomMessages = async (req, res) => {
   }
 };
 
+/**
+ * Send a message in a chat room
+ */
+const sendMessage = async (req, res) => {
+  try {
+    const { roomId, content } = req.body;
+    const senderId = req.user.id;
 
+    console.log('senderId : ', senderId);
+    console.log('body : ', req.body);
+
+    if (!roomId || !content) {
+      return res.status(400).json({ error: 'roomId and content are required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ error: 'Invalid roomId format' });
+    }
+
+    const room = await Chatroom.findOne({
+      _id: roomId,
+      $or: [{ user: senderId }, { shop: senderId }],
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Chat room not found' });
+    }
+
+    const message = new Message({
+      roomId: roomId,
+      sender: senderId,
+      content,
+      senderType: req.user.role === 'shop' ? 'Shop' : 'User',
+    });
+
+    await message.save();
+
+    room.lastMessage = message._id;
+    room.updatedAt = new Date();
+    await room.save();
+
+    const populatedMessage = await Message.findById(message._id).populate('sender', 'username');
+
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      console.log(`Emitting newMessage to room ${roomId}:`, populatedMessage);
+      io.to(roomId).emit('newMessage', { roomId, message: populatedMessage });
+    }
+
+    res.status(201).json(populatedMessage);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+};
 
 module.exports = {
   getUserChats,
