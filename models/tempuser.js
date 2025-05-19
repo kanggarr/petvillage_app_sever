@@ -9,3 +9,5 @@ const tempUserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const TempUser = mongoose.model('TempUser', tempUserSchema);
+
+module.exports = TempUser; 
