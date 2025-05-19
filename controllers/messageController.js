@@ -1,182 +1,568 @@
 const Message = require('../models/messages');
-const Chatroom = require('../models/chatroom'); // ✅ ต้อง import
-const User = require('../models/user');     // ✅ ต้อง import
-const Shop = require('../models/shop');     // ✅ ต้อง import
+const Chatroom = require('../models/chatroom');
+const User = require('../models/user');
+const Shop = require('../models/shop');
 const mongoose = require('mongoose');
-const { login } = require('./authController');
+
+/**
+ * Initialize Socket.IO handlers
+ * Call this function in your server.js after setting up Socket.IO
+ * @param {SocketIO.Server} io - Socket.IO server instance
+ */
+const initializeSocket = (io) => {
+  io.on('connection', (socket) => {
+    console.log(`Socket connected: ${socket.id}`);
+
+    // Handle authentication
+    socket.on('authenticate', (token) => {
+      // Verify token (simplified; use your auth middleware logic)
+      // Assuming token is a JWT, you should decode and verify it
+      console.log(`Socket ${socket.id} authenticated with token`);
+      socket.authenticated = true;
+    });
+
+    // Handle joining a room
+    socket.on('joinRoom', (roomId) => {
+      if (!socket.authenticated) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+      if (!mongoose.Types.ObjectId.isValid(roomId)) {
+        socket.emit('error', { message: 'Invalid roomId' });
+        return;
+      }
+      console.log(`Socket ${socket.id} joining room: ${roomId}`);
+      socket.join(roomId);
+      socket.emit('joinedRoom', { roomId });
+    });
+
+    // Handle leaving a room
+    socket.on('leaveRoom', (roomId) => {
+      if (!socket.authenticated) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+      console.log(`Socket ${socket.id} leaving room: ${roomId}`);
+      socket.leave(roomId);
+    });
+
+    // Handle typing events
+    socket.on('typing', (roomId) => {
+      if (!socket.authenticated || !mongoose.Types.ObjectId.isValid(roomId)) {
+        return;
+      }
+      socket.to(roomId).emit('typing', { userId: socket.id, roomId });
+    });
+
+    socket.on('stopTyping', (roomId) => {
+      if (!socket.authenticated || !mongoose.Types.ObjectId.isValid(roomId)) {
+        return;
+      }
+      socket.to(roomId).emit('stopTyping', { roomId });
+    });
+
+    // Handle chat message (optional, if you keep the frontend emitting chatMessage)
+    socket.on('chatMessage', ({ roomId, message }) => {
+      if (!socket.authenticated || !mongoose.Types.ObjectId.isValid(roomId)) {
+        return;
+      }
+      console.log(`Emitting newMessage to room ${roomId}:`, message);
+      io.to(roomId).emit('newMessage', { roomId, message });
+    });
+
+    socket.on('disconnect', () => {
+      console.log(`Socket disconnected: ${socket.id}`);
+    });
+  });
+};
+
+/**
+ * Get messages for a specific chat room with pagination
+ */
 const getMessagesRoomByUser = async (req, res) => {
   try {
     const { roomId } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
-    const messages = await Message.find({ roomId })
-      .sort({ timestamp: -1 }) // ดึงล่าสุดก่อน
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ error: 'Invalid roomId format' });
+    }
 
-    res.json(messages.reverse()); // กลับลำดับให้เก่าสุดอยู่ล่าง
+    const roomObjectId = new mongoose.Types.ObjectId(roomId);
+
+    const messages = await Message.find({ roomId: roomObjectId })
+      .sort({ timestamp: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .populate('sender', 'username');
+
+    const { userId } = req.query;
+    if (userId) {
+      const messageIds = messages.map(msg => msg._id);
+      await Message.updateMany(
+        { _id: { $in: messageIds } },
+        { $addToSet: { readBy: userId } }
+      );
+    }
+
+    res.json(messages.reverse());
   } catch (err) {
+    console.error('Error fetching messages:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
+/**
+ * Create a new message in a chat room
+ */
 const createMessage = async (req, res) => {
   try {
-    const { roomId, sender, senderType, content } = req.body;
+    const { roomId, sender, senderType, content, attachments } = req.body;
 
     if (!roomId || !sender || !senderType || !content) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // ตรวจสอบ sender ว่ามีอยู่ในระบบไหม
-    if (senderType === 'User') {
-      const user = await User.findOne({ username: sender });
-      if (!user) return res.status(400).json({ error: 'User not found' });
-    } else if (senderType === 'Shop') {
-      const shop = await Shop.findOne({ shopName: sender });
-      if (!shop) return res.status(400).json({ error: 'Shop not found' });
-    } else {
-      return res.status(400).json({ error: 'Invalid senderType' });
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ error: 'Invalid roomId format' });
     }
 
-    const newMessage = new Message({ roomId, sender, senderType, content });
+    const roomObjectId = new mongoose.Types.ObjectId(roomId);
+
+    const chatroom = await Chatroom.findById(roomObjectId);
+    if (!chatroom) {
+      return res.status(404).json({ error: 'Chat room not found' });
+    }
+
+    const messageData = {
+      roomId: roomObjectId,
+      sender,
+      senderType,
+      content,
+      readBy: [{ userId: sender, readAt: new Date() }],
+    };
+
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      messageData.attachments = attachments;
+    }
+
+    const newMessage = new Message(messageData);
     const saved = await newMessage.save();
 
-    res.status(201).json(saved);
+    await Chatroom.findByIdAndUpdate(roomObjectId, { updatedAt: Date.now() });
+
+    const populatedMessage = await Message.findById(saved._id).populate('sender', 'username');
+
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      console.log(`Emitting newMessage to room ${roomId}:`, populatedMessage);
+      io.to(roomId).emit('newMessage', { roomId, message: populatedMessage });
+    }
+
+    res.status(201).json(populatedMessage);
   } catch (err) {
-    console.error(err);
+    console.error('Error creating message:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-
+/**
+ * Get the latest message from a specific chat room
+ */
 const getLatestMessageByRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
 
-    const latest = await Message.findOne({ roomId })
-      .sort({ timestamp: -1 });
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ error: 'Invalid roomId format' });
+    }
 
-    res.json(latest);
+    const roomObjectId = new mongoose.Types.ObjectId(roomId);
+
+    const latest = await Message.findOne({ roomId: roomObjectId })
+      .sort({ timestamp: -1 })
+      .populate('sender', 'username');
+
+    res.json(latest || { message: 'No messages found' });
   } catch (err) {
+    console.error('Error fetching latest message:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-
+/**
+ * Create a new chat room between a user and a shop
+ */
 const createChatRoom = async (req, res) => {
+  console.log('Creating chat room...');
   try {
-    const { userId, shopId } = req.body;
+    const { shopId, roomName } = req.body;
+    const userId = req.user?.id;
 
-    // 🔍 Validate input
-    if (!userId || !shopId) {
-      return res.status(400).json({ error: 'userId and shopId are required' });
+    if (!userId) {
+      console.log('Missing user ID');
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ error: 'Invalid userId' });
+    if (!shopId) {
+      console.log('Missing shopId');
+      return res.status(400).json({ error: 'shopId is required' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(shopId)) {
+      console.log('Invalid shopId');
       return res.status(400).json({ error: 'Invalid shopId' });
     }
 
-    // ✅ ตรวจสอบว่าผู้ใช้และร้านค้ามีอยู่ในระบบหรือไม่
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
     const shop = await User.findById(shopId);
     if (!shop) {
+      console.log('user not found');
+      return res.status(404).json({ error: 'user not found' });
+    }
+    if (shop.role !== 'shop') {
+      console.log('User is not a shop');
       return res.status(404).json({ error: 'Shop not found' });
     }
 
-    // 🔁 ตรวจสอบว่าห้องแชทนี้มีอยู่แล้วหรือยัง
-    const result = await Chatroom.findOne({
-      user: new mongoose.Types.ObjectId(userId),
-      shop: new mongoose.Types.ObjectId(shopId)
+    const existingRoom = await Chatroom.findOne({
+      user: userId,
+      shop: shopId,
     });
 
-    if (result) {
-      return res.status(400).json({ error: 'Chat room already exists' });
+    if (existingRoom) {
+      console.log('Existing chat room found:', existingRoom._id);
+      return res.status(200).json({
+        message: 'Chat room already exists',
+        chatroom: existingRoom,
+      });
     }
 
-
-
-    // 🆕 สร้างห้องแชทใหม่
     const newRoom = new Chatroom({
-      roomName: 'New Chat',
-      user,
-      shop
+      roomName: roomName || `Chat with ${shop.username}`,
+      user: userId,
+      shop: shopId,
     });
 
     await newRoom.save();
 
-    return res.status(201).json(newRoom);
+    const populatedRoom = await Chatroom.findById(newRoom._id)
+      .populate('user', 'username email')
+      .populate('shop', 'username email');
+
+    const welcomeMessage = new Message({
+      roomId: newRoom._id,
+      sender: 'system',
+      senderType: 'User',
+      content: 'Welcome to your new conversation! You can now start chatting.',
+    });
+
+    await welcomeMessage.save();
+
+    newRoom.lastMessage = welcomeMessage._id;
+    await newRoom.save();
+
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      io.to(newRoom._id.toString()).emit('newRoom', { room: populatedRoom });
+    }
+
+    console.log('Chat room created successfully');
+    return res.status(201).json({
+      message: 'Chat room created successfully',
+      chatroom: populatedRoom,
+    });
   } catch (err) {
     console.error('Error creating chat room:', err);
-    return res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ error: 'Server error', details: err.message });
   }
 };
 
+/**
+ * Get all chat rooms for a specific user with latest messages
+ */
 const getChatRoomByUser = async (req, res) => {
   try {
     const { userId } = req.query;
 
-    // ตรวจสอบว่า userId ถูกส่งมาหรือไม่
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    // ตรวจสอบว่า userId เป็น ObjectId ที่ valid หรือไม่
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ error: 'Invalid userId' });
     }
 
     const rooms = await Chatroom.find({ user: userId })
-      .populate({path: 'user', select: 'username id'})
-      .populate({path: 'shop', select: 'username id'}) // เติมข้อมูลร้านค้า
+      .populate({ path: 'user', select: 'username id profileImage' })
+      .populate({ path: 'shop', select: 'username id profileImage' })
       .sort({ updatedAt: -1 });
 
-    res.json(rooms);
+    const roomsWithLatestMessage = await Promise.all(rooms.map(async (room) => {
+      const latestMessage = await Message.findOne({ roomId: room._id })
+        .sort({ timestamp: -1 })
+        .limit(1)
+        .populate('sender', 'username');
+
+      const unreadCount = await Message.countDocuments({
+        roomId: room._id,
+        sender: { $ne: userId },
+        readBy: { $ne: userId }
+      });
+
+      return {
+        ...room.toObject(),
+        latestMessage: latestMessage || null,
+        unreadCount
+      };
+    }));
+
+    res.json(roomsWithLatestMessage);
   } catch (err) {
-    console.error('getChatRoomByUser error:', err);
+    console.error('Error getting user chat rooms:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-// ดึงห้องแชททั้งหมดของร้านค้า
+/**
+ * Get all chat rooms for a specific shop with latest messages
+ */
 const getChatRoomByShop = async (req, res) => {
   try {
     const { shopId } = req.query;
 
-    // ตรวจสอบว่า shopId ถูกส่งมาหรือไม่
     if (!shopId) {
       return res.status(400).json({ error: 'shopId is required' });
     }
 
-    // ตรวจสอบว่า shopId เป็น ObjectId ที่ valid หรือไม่
     if (!mongoose.Types.ObjectId.isValid(shopId)) {
       return res.status(400).json({ error: 'Invalid shopId' });
     }
 
     const rooms = await Chatroom.find({ shop: shopId })
-      .populate({path: 'user', select: 'username id'})
-      .populate({path: 'shop', select: 'username id'}) // เติมข้อมูลร้านค้า
+      .populate({ path: 'user', select: 'username id profileImage' })
+      .populate({ path: 'shop', select: 'username id profileImage' })
       .sort({ updatedAt: -1 });
 
-    res.json(rooms);
+    const roomsWithLatestMessage = await Promise.all(rooms.map(async (room) => {
+      const latestMessage = await Message.findOne({ roomId: room._id })
+        .sort({ timestamp: -1 })
+        .limit(1)
+        .populate('sender', 'username');
+
+      const unreadCount = await Message.countDocuments({
+        roomId: room._id,
+        sender: { $ne: shopId },
+        readBy: { $ne: shopId }
+      });
+
+      return {
+        ...room.toObject(),
+        latestMessage: latestMessage || null,
+        unreadCount
+      };
+    }));
+
+    res.json(roomsWithLatestMessage);
   } catch (err) {
-    console.error('getChatRoomByShop error:', err);
+    console.error('Error getting shop chat rooms:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
+/**
+ * Mark messages as read
+ */
+const markMessagesAsRead = async (req, res) => {
+  try {
+    const { roomId, userId } = req.body;
+
+    if (!roomId || !userId) {
+      return res.status(400).json({ error: 'roomId and userId are required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ error: 'Invalid roomId' });
+    }
+
+    await Message.updateMany(
+      {
+        roomId,
+        'readBy.userId': { $ne: userId }
+      },
+      {
+        $addToSet: { readBy: { userId: userId, readAt: new Date() } }
+      }
+    );
+
+    res.json({ success: true, message: 'Messages marked as read' });
+  } catch (err) {
+    console.error('Error marking messages as read:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
+ * Delete a message (soft delete)
+ */
+const deleteMessage = async (req, res) => {
+  try {
+    const { messageId, userId } = req.body;
+
+    if (!messageId) {
+      return res.status(400).json({ error: 'messageId is required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return res.status(400).json({ error: 'Invalid messageId' });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (message.sender.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to delete this message' });
+    }
+
+    message.content = 'This message was deleted';
+    message.isDeleted = true;
+    await message.save();
+
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      io.to(message.roomId.toString()).emit('messageDeleted', { messageId });
+    }
+
+    res.json({ success: true, message: 'Message deleted' });
+  } catch (err) {
+    console.error('Error deleting message:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+/**
+ * Get all chat rooms for the current user
+ */
+const getUserChats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const chatRooms = await Chatroom.find({
+      $or: [{ user: userId }, { shop: userId }]
+    })
+      .populate('user', 'username email')
+      .populate('shop', 'username email')
+      .populate({
+        path: 'lastMessage',
+        select: 'content sender createdAt',
+        populate: { path: 'sender', select: 'username' }
+      })
+      .sort({ updatedAt: -1 });
+
+    res.json(chatRooms);
+  } catch (error) {
+    console.error('Error fetching user chats:', error);
+    res.status(500).json({ error: 'Failed to fetch chat rooms' });
+  }
+};
+
+/**
+ * Get messages for a specific chat room
+ */
+const getRoomMessages = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ error: 'Invalid roomId format' });
+    }
+
+    const room = await Chatroom.findOne({
+      _id: roomId,
+      $or: [{ user: userId }, { shop: userId }],
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Chat room not found' });
+    }
+
+    const messages = await Message.find({ roomId: roomId })
+      .sort({ timestamp: 1 })
+      .populate('sender', 'username');
+
+    res.json(messages);
+  } catch (error) {
+    console.error('Error fetching room messages:', error);
+    res.status(500).json({ error: 'Failed to fetch messages' });
+  }
+};
+
+/**
+ * Send a message in a chat room
+ */
+const sendMessage = async (req, res) => {
+  try {
+    const { roomId, content } = req.body;
+    const senderId = req.user.id;
+
+    if (!roomId || !content) {
+      return res.status(400).json({ error: 'roomId and content are required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ error: 'Invalid roomId format' });
+    }
+
+    const room = await Chatroom.findOne({
+      _id: roomId,
+      $or: [{ user: senderId }, { shop: senderId }],
+    });
+
+    if (!room) {
+      return res.status(404).json({ error: 'Chat room not found' });
+    }
+
+    const message = new Message({
+      roomId: roomId,
+      sender: senderId,
+      content,
+      senderType: req.user.role === 'shop' ? 'Shop' : 'User',
+    });
+
+    await message.save();
+
+    room.lastMessage = message._id;
+    room.updatedAt = new Date();
+    await room.save();
+
+    const populatedMessage = await Message.findById(message._id).populate('sender', 'username');
+
+    if (req.app.get('io')) {
+      const io = req.app.get('io');
+      console.log(`Emitting newMessage to room ${roomId}:`, populatedMessage);
+      io.to(roomId).emit('newMessage', { roomId, message: populatedMessage });
+    }
+
+    res.status(201).json(populatedMessage);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ error: 'Failed to send message' });
+  }
+};
+
 module.exports = {
+  getUserChats,
+  getRoomMessages,
   getMessagesRoomByUser,
   createMessage,
   getLatestMessageByRoom,
   createChatRoom,
   getChatRoomByUser,
-  getChatRoomByShop
+  getChatRoomByShop,
+  markMessagesAsRead,
+  deleteMessage,
+  sendMessage,
+  initializeSocket
 };

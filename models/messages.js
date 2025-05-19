@@ -2,33 +2,47 @@ const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
   roomId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chatroom',
     required: true,
-    trim: true
   },
-
   sender: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    refPath: 'senderType', // Dynamically reference User or Shop based on senderType
     required: true,
-    trim: true
   },
-
   senderType: {
     type: String,
     required: true,
-    enum: ['User', 'Shop']
+    enum: ['User', 'Shop'],
   },
-
   content: {
     type: String,
     required: true,
-    trim: true
   },
-
   timestamp: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
+  readBy: [
+    {
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      readAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
+  attachments: [
+    {
+      type: String,
+      url: String,
+      fileType: String,
+    },
+  ],
 });
 
 messageSchema.index({ roomId: 1, timestamp: -1 });
