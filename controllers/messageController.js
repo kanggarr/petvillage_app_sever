@@ -11,13 +11,8 @@ const mongoose = require('mongoose');
  */
 const initializeSocket = (io) => {
   io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id}`);
-
     // Handle authentication
     socket.on('authenticate', (token) => {
-      // Verify token (simplified; use your auth middleware logic)
-      // Assuming token is a JWT, you should decode and verify it
-      console.log(`Socket ${socket.id} authenticated with token`);
       socket.authenticated = true;
     });
 
@@ -31,7 +26,6 @@ const initializeSocket = (io) => {
         socket.emit('error', { message: 'Invalid roomId' });
         return;
       }
-      console.log(`Socket ${socket.id} joining room: ${roomId}`);
       socket.join(roomId);
       socket.emit('joinedRoom', { roomId });
     });
@@ -42,7 +36,6 @@ const initializeSocket = (io) => {
         socket.emit('error', { message: 'Not authenticated' });
         return;
       }
-      console.log(`Socket ${socket.id} leaving room: ${roomId}`);
       socket.leave(roomId);
     });
 
@@ -61,7 +54,7 @@ const initializeSocket = (io) => {
       socket.to(roomId).emit('stopTyping', { roomId });
     });
 
-    // Handle chat message (optional, if you keep the frontend emitting chatMessage)
+    // Handle chat message
     socket.on('chatMessage', ({ roomId, message }) => {
       if (!socket.authenticated || !mongoose.Types.ObjectId.isValid(roomId)) {
         return;
@@ -149,7 +142,7 @@ const createMessage = async (req, res) => {
     const newMessage = new Message(messageData);
     const saved = await newMessage.save();
 
-    await Chatroom.findByIdAndUpdate(roomObjectId, { updatedAt: Date.now() });
+    await Chatroom.findByIdAndUpdate(roomObjectId, { lastMessage: saved._id, updatedAt: Date.now() });
 
     const populatedMessage = await Message.findById(saved._id).populate('sender', 'username');
 
@@ -216,8 +209,8 @@ const createChatRoom = async (req, res) => {
 
     const shop = await User.findById(shopId);
     if (!shop) {
-      console.log('user not found');
-      return res.status(404).json({ error: 'user not found' });
+      console.log('User not found');
+      return res.status(404).json({ error: 'User not found' });
     }
     if (shop.role !== 'shop') {
       console.log('User is not a shop');
@@ -233,7 +226,15 @@ const createChatRoom = async (req, res) => {
       console.log('Existing chat room found:', existingRoom._id);
       return res.status(200).json({
         message: 'Chat room already exists',
-        chatroom: existingRoom,
+        chatroom: {
+          _id: existingRoom._id,
+          roomName: existingRoom.roomName,
+          user: existingRoom.user,
+          shop: existingRoom.shop,
+          lastMessage: existingRoom.lastMessage,
+          createdAt: existingRoom.createdAt,
+          updatedAt: existingRoom.updatedAt,
+        },
       });
     }
 
@@ -259,17 +260,36 @@ const createChatRoom = async (req, res) => {
     await welcomeMessage.save();
 
     newRoom.lastMessage = welcomeMessage._id;
+    newRoom.updatedAt = new Date();
     await newRoom.save();
 
     if (req.app.get('io')) {
       const io = req.app.get('io');
-      io.to(newRoom._id.toString()).emit('newRoom', { room: populatedRoom });
+      io.to(newRoom._id.toString()).emit('newRoom', {
+        room: {
+          _id: populatedRoom._id,
+          roomName: populatedRoom.roomName,
+          user: populatedRoom.user,
+          shop: populatedRoom.shop,
+          lastMessage: populatedRoom.lastMessage,
+          createdAt: populatedRoom.createdAt,
+          updatedAt: populatedRoom.updatedAt,
+        },
+      });
     }
 
     console.log('Chat room created successfully');
     return res.status(201).json({
       message: 'Chat room created successfully',
-      chatroom: populatedRoom,
+      chatroom: {
+        _id: populatedRoom._id,
+        roomName: populatedRoom.roomName,
+        user: populatedRoom.user,
+        shop: populatedRoom.shop,
+        lastMessage: populatedRoom.lastMessage,
+        createdAt: populatedRoom.createdAt,
+        updatedAt: populatedRoom.updatedAt,
+      },
     });
   } catch (err) {
     console.error('Error creating chat room:', err);
@@ -306,13 +326,18 @@ const getChatRoomByUser = async (req, res) => {
       const unreadCount = await Message.countDocuments({
         roomId: room._id,
         sender: { $ne: userId },
-        readBy: { $ne: userId }
+        readBy: { $ne: userId },
       });
 
       return {
-        ...room.toObject(),
-        latestMessage: latestMessage || null,
-        unreadCount
+        _id: room._id,
+        roomName: room.roomName,
+        user: room.user,
+        shop: room.shop,
+        lastMessage: latestMessage || null,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        unreadCount,
       };
     }));
 
@@ -352,13 +377,18 @@ const getChatRoomByShop = async (req, res) => {
       const unreadCount = await Message.countDocuments({
         roomId: room._id,
         sender: { $ne: shopId },
-        readBy: { $ne: shopId }
+        readBy: { $ne: shopId },
       });
 
       return {
-        ...room.toObject(),
-        latestMessage: latestMessage || null,
-        unreadCount
+        _id: room._id,
+        roomName: room.roomName,
+        user: room.user,
+        shop: room.shop,
+        lastMessage: latestMessage || null,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt,
+        unreadCount,
       };
     }));
 
@@ -387,10 +417,10 @@ const markMessagesAsRead = async (req, res) => {
     await Message.updateMany(
       {
         roomId,
-        'readBy.userId': { $ne: userId }
+        'readBy.userId': { $ne: userId },
       },
       {
-        $addToSet: { readBy: { userId: userId, readAt: new Date() } }
+        $addToSet: { readBy: { userId: userId, readAt: new Date() } },
       }
     );
 
@@ -442,31 +472,105 @@ const deleteMessage = async (req, res) => {
 };
 
 /**
- * Get all chat rooms for the current user
+ * Get all chat rooms for the current user or shop
  */
 const getUserChats = async (req, res) => {
   try {
     const userId = req.user.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
 
-    const chatRooms = await Chatroom.find({
-      $or: [{ user: userId }, { shop: userId }]
+    // ดึงข้อมูล chat rooms พร้อม populate
+    const rooms = await Chatroom.find({
+      $or: [{ user: userId }, { shop: userId }],
     })
-      .populate('user', 'username email')
-      .populate('shop', 'username email')
+      .populate({
+        path: 'user',
+        select: 'username email profileImage',
+        options: { lean: true }, // ใช้ lean ใน populate
+      })
+      .populate({
+        path: 'shop',
+        select: 'username email profileImage',
+        options: { lean: true },
+      })
       .populate({
         path: 'lastMessage',
         select: 'content sender createdAt',
-        populate: { path: 'sender', select: 'username' }
+        populate: { path: 'sender', select: 'username', options: { lean: true } },
+        options: { lean: true },
       })
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .lean();
 
-    res.json(chatRooms);
-  } catch (error) {
-    console.error('Error fetching user chats:', error);
-    res.status(500).json({ error: 'Failed to fetch chat rooms' });
+    // คำนวณ unreadCount
+    const roomIds = rooms.map(r => r._id);
+    const unreadAgg = await Message.aggregate([
+      {
+        $match: {
+          roomId: { $in: roomIds.map(id => new mongoose.Types.ObjectId(id)) },
+          sender: { $ne: new mongoose.Types.ObjectId(userId) }, // ข้อความที่ไม่ใช่ของผู้ใช้
+          'readBy.userId': { $ne: new mongoose.Types.ObjectId(userId) }, // ยังไม่ได้อ่าน
+        },
+      },
+      {
+        $group: {
+          _id: '$roomId',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const unreadMap = unreadAgg.reduce((acc, { _id, count }) => {
+      acc[_id.toString()] = count;
+      return acc;
+    }, {});
+
+    // สร้าง JSON response พร้อม fallback สำหรับ null
+    const result = rooms.map(room => ({
+      _id: room._id ? room._id.toString() : '', // ป้องกัน _id เป็น null
+      roomName: room.roomName || '', // fallback ถ้า roomName เป็น null
+      user: room.user
+        ? {
+          _id: room.user._id ? room.user._id.toString() : '',
+          username: room.user.username || '',
+          email: room.user.email || '',
+          profileImage: room.user.profileImage || null,
+        }
+        : { _id: '', username: '', email: '', profileImage: null }, // fallback ถ้า user เป็น null
+      shop: room.shop
+        ? {
+          _id: room.shop._id ? room.shop._id.toString() : '',
+          username: room.shop.username || '',
+          email: room.shop.email || '',
+          profileImage: room.shop.profileImage || null,
+        }
+        : { _id: '', username: '', email: '', profileImage: null }, // fallback ถ้า shop เป็น null
+      lastMessage: room.lastMessage
+        ? {
+          _id: room.lastMessage._id ? room.lastMessage._id.toString() : '',
+          content: room.lastMessage.content || '',
+          sender: room.lastMessage.sender
+            ? {
+              _id: room.lastMessage.sender._id ? room.lastMessage.sender._id.toString() : '',
+              username: room.lastMessage.sender.username || '',
+            }
+            : { _id: '', username: '' },
+          createdAt: room.lastMessage.createdAt || new Date().toISOString(),
+        }
+        : null,
+      createdAt: room.createdAt ? room.createdAt.toISOString() : new Date().toISOString(), // fallback
+      updatedAt: room.updatedAt ? room.updatedAt.toISOString() : new Date().toISOString(), // fallback
+      unreadCount: unreadMap[room._id.toString()] || 0,
+    }));
+
+    return res.json(result);
+  } catch (err) {
+    console.error('Error fetching user chats:', err);
+    return res.status(500).json({ error: 'Failed to fetch chat rooms', details: err.message });
   }
 };
-
 /**
  * Get messages for a specific chat room
  */
@@ -492,6 +596,7 @@ const getRoomMessages = async (req, res) => {
       .sort({ timestamp: 1 })
       .populate('sender', 'username');
 
+    console.log('messages : ', messages);
     res.json(messages);
   } catch (error) {
     console.error('Error fetching room messages:', error);
@@ -499,58 +604,7 @@ const getRoomMessages = async (req, res) => {
   }
 };
 
-/**
- * Send a message in a chat room
- */
-const sendMessage = async (req, res) => {
-  try {
-    const { roomId, content } = req.body;
-    const senderId = req.user.id;
 
-    if (!roomId || !content) {
-      return res.status(400).json({ error: 'roomId and content are required' });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(roomId)) {
-      return res.status(400).json({ error: 'Invalid roomId format' });
-    }
-
-    const room = await Chatroom.findOne({
-      _id: roomId,
-      $or: [{ user: senderId }, { shop: senderId }],
-    });
-
-    if (!room) {
-      return res.status(404).json({ error: 'Chat room not found' });
-    }
-
-    const message = new Message({
-      roomId: roomId,
-      sender: senderId,
-      content,
-      senderType: req.user.role === 'shop' ? 'Shop' : 'User',
-    });
-
-    await message.save();
-
-    room.lastMessage = message._id;
-    room.updatedAt = new Date();
-    await room.save();
-
-    const populatedMessage = await Message.findById(message._id).populate('sender', 'username');
-
-    if (req.app.get('io')) {
-      const io = req.app.get('io');
-      console.log(`Emitting newMessage to room ${roomId}:`, populatedMessage);
-      io.to(roomId).emit('newMessage', { roomId, message: populatedMessage });
-    }
-
-    res.status(201).json(populatedMessage);
-  } catch (error) {
-    console.error('Error sending message:', error);
-    res.status(500).json({ error: 'Failed to send message' });
-  }
-};
 
 module.exports = {
   getUserChats,
@@ -564,5 +618,5 @@ module.exports = {
   markMessagesAsRead,
   deleteMessage,
   sendMessage,
-  initializeSocket
+  initializeSocket,
 };
