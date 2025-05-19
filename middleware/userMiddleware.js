@@ -11,7 +11,7 @@ const User = require('../models/user');
 const validateUserPermission = asyncHandler(async (req, res, next) => {
     try {
         // Get authorization header
-        const authHeader = req.headers.authorization;
+        const authHeader = req.headers.Authorization || req.headers.authorization;
         
         // Check if auth header exists and has correct format
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -58,12 +58,11 @@ const validateUserPermission = asyncHandler(async (req, res, next) => {
                 message: "คุณไม่มีสิทธิ์เข้าถึงข้อมูลส่วนนี้"
             });
         }
+
+        //เพิ่มบรรทัดเข้าไปสำหรับการทำ Favorite
+        decoded.user._id = decoded.user.id;
         // Set user in request object
-        req.user = {
-            userId: decoded.user.id,   // สำหรับ controller ที่ใช้ userId
-            id: decoded.user.id,       // สำหรับ controller เดิมที่อาจใช้ id
-            role: decoded.user.role
-        };
+        req.user = decoded.user;
 
         next();
 
