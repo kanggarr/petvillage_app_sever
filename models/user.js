@@ -10,18 +10,32 @@ const UserSchema = new mongoose.Schema({
       required: [true, "Please add the email address"],
       unique: [true, "Email address is already taken"]
     },
+    name: { type: String },
+    phone: { type: String },
+    address: { type: String },
+    postCode: { type: String },
+    province: { type: String },
+    district: { type: String },
+    subDistrict: { type: String },
     password: {
       type: String,
-      required: [true, "Please add password"]
+      required: [true, "Please add password"],
+      select: false
     },
-    phone_num: { 
-      type: Number, 
-      required: [true, "Please enter your phone number"],
-      unique: [true, "This number is already used"]
+    role: {
+      type: String,
+      enum: ['user', 'shop'],  // ✅ Define allowed values
+      default: 'user'            // ✅ Set default value
     },
     otp: { type: String, required: false }, // เก็บ OTP ล่าสุด
     otpExpires: { type: Date, required: false }, // เวลาหมดอายุของ OTP
-    isVerified: { type: Boolean, default: false } // สถานะยืนยันบัญชี
+    isVerified: { type: Boolean, default: false }, // สถานะยืนยันบัญชี
+    // ✅ เพิ่ม field นี้ เพื่อใช้เก็บห้องแชท
+    roomId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Room', // หรือเปลี่ยนเป็น 'ChatRoom' ถ้า model ของคุณใช้ชื่อนั้น
+      required: false
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

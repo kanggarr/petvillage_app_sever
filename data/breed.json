@@ -1,0 +1,194 @@
+[
+    {
+      "type": "สุนัข",
+      "breeds": [
+        {
+          "name_th": "ชิวาวา",
+          "name_en": "Chihuahua"
+        },
+        {
+          "name_th": "ปอมเมอเรเนียน",
+          "name_en": "Pomeranian"
+        },
+        {
+          "name_th": "บีเกิล",
+          "name_en": "Beagle"
+        },
+        {
+          "name_th": "โกลเด้น รีทรีฟเวอร์",
+          "name_en": "Golden Retriever"
+        },
+        {
+          "name_th": "ลาบราดอร์ รีทรีฟเวอร์",
+          "name_en": "Labrador Retriever"
+        },
+        {
+          "name_th": "ไซบีเรียน ฮัสกี้",
+          "name_en": "Siberian Husky"
+        },
+        {
+          "name_th": "ปั๊ก",
+          "name_en": "Pug"
+        },
+        {
+          "name_th": "ชิสุ",
+          "name_en": "Shih Tzu"
+        },
+        {
+          "name_th": "ยอร์คเชียร์ เทอร์เรียร์",
+          "name_en": "Yorkshire Terrier"
+        },
+        {
+          "name_th": "เฟรนช์ บูลด็อก",
+          "name_en": "French Bulldog"
+        },
+        {
+          "name_th": "โดเบอร์แมน",
+          "name_en": "Doberman"
+        },
+        {
+          "name_th": "แจ็ครัสเซล เทอร์เรีย",
+          "name_en": "Jack Russell Terrier"
+        }
+      ]
+    },
+    {
+      "type": "แมว",
+      "breeds": [
+        {
+          "name_th": "เปอร์เซีย",
+          "name_en": "Persian"
+        },
+        {
+          "name_th": "เมนคูน",
+          "name_en": "Maine Coon"
+        },
+        {
+          "name_th": "บริติช ช็อตแฮร์",
+          "name_en": "British Shorthair"
+        },
+        {
+          "name_th": "อเมริกัน ช็อตแฮร์",
+          "name_en": "American Shorthair"
+        },
+        {
+          "name_th": "สก็อตติช โฟลด์",
+          "name_en": "Scottish Fold"
+        },
+        {
+          "name_th": "เบงกอล",
+          "name_en": "Bengal"
+        },
+        {
+          "name_th": "แร็กดอลล์",
+          "name_en": "Ragdoll"
+        },
+        {
+          "name_th": "เอ็กโซติก ช็อตแฮร์",
+          "name_en": "Exotic Shorthair"
+        },
+        {
+          "name_th": "สฟิงซ์",
+          "name_en": "Sphynx"
+        },
+        {
+          "name_th": "โซมาเลีย",
+          "name_en": "Somali"
+        },
+        {
+          "name_th": "ตุรกีแวน",
+          "name_en": "Turkish Van"
+        }
+      ]
+    },
+    {
+      "type": "กระต่าย",
+      "breeds": [
+        {
+          "name_th": "ฮอลแลนด์ลอป",
+          "name_en": "Holland Lop"
+        },
+        {
+          "name_th": "เนเธอร์แลนด์ดวาร์ฟ",
+          "name_en": "Netherland Dwarf"
+        },
+        {
+          "name_th": "แองโกรา",
+          "name_en": "Angora"
+        },
+        {
+          "name_th": "เฟลมมิชไจแอนท์",
+          "name_en": "Flemish Giant"
+        },
+        {
+          "name_th": "ไลอ้อนเฮด",
+          "name_en": "Lionhead"
+        },
+        {
+          "name_th": "เร็กซ์",
+          "name_en": "Rex"
+        },
+        {
+          "name_th": "ฮอท็อต",
+          "name_en": "Hotot"
+        },
+        {
+          "name_th": "มินิเร็กซ์",
+          "name_en": "Mini Rex"
+        },
+        {
+          "name_th": "อเมริกัน",
+          "name_en": "American"
+        },
+        {
+          "name_th": "อิงลิช ลอป",
+          "name_en": "English Lop"
+        }
+      ]
+    },
+    {
+      "type": "แฮมสเตอร์",
+      "breeds": [
+        {
+          "name_th": "แคมพ์เบล",
+          "name_en": "Campbell"
+        },
+        {
+          "name_th": "วินเทอร์ไวท์",
+          "name_en": "Winter White"
+        },
+        {
+          "name_th": "โรโบโรฟสกี้",
+          "name_en": "Roborovski"
+        },
+        {
+          "name_th": "ซีเรีย",
+          "name_en": "Syrian"
+        },
+        {
+          "name_th": "ไชนีส",
+          "name_en": "Chinese"
+        },
+        {
+          "name_th": "แบล็กแบร์",
+          "name_en": "Black Bear"
+        },
+        {
+          "name_th": "แพนด้า",
+          "name_en": "Panda"
+        },
+        {
+          "name_th": "แชมเปญ",
+          "name_en": "Champagne"
+        },
+        {
+          "name_th": "บลูเบอร์รี่",
+          "name_en": "Blueberry"
+        },
+        {
+          "name_th": "คิวต์ดาร์ฟ",
+          "name_en": "Cute Dwarf"
+        }
+      ]
+    }
+  ]

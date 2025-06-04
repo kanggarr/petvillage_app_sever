@@ -1,0 +1,35 @@
+// example
+const express = require('express');
+const router = express.Router();
+const { authenticate } = require('../middleware/auth');
+
+const { 
+  register,
+  verifyOTP,
+  login,
+  refreshToken,
+  forgetPassword,
+  resetPassword,
+  verifyResetOTP,
+  resendOTP,
+  registerShop,
+  uploadSingle
+} = require('../controllers/authController');
+
+// Public routes (ไม่ต้องการ authentication)
+router.post('/register', register);
+router.post('/register/shop',uploadSingle, registerShop);
+router.post('/verify', verifyOTP);
+router.post('/resend', resendOTP);
+router.post('/login', login);
+router.post('/refreshtoken', refreshToken);
+router.post('/forgotpassword', forgetPassword);
+router.post('/verifyReset', verifyResetOTP);
+router.post('/resetpassword', resetPassword);
+
+// Protected route - requires authentication
+router.get('/me', authenticate, (req, res) => {
+  res.json(req.user);
+});
+
+module.exports = router;

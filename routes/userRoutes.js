@@ -1,25 +1,19 @@
 const express = require('express');
 const router = express.Router();
-const validateToken = require("../middleware/validateToken");
-const User = require('../models/user');
+const { validateUserPermission } = require("../middleware/userMiddleware");
+const { test, getCurrentUserProfile, updateUser, updatePassword } = require('../controllers/userController');
 
-router.post('/', validateToken, async (req, res) => {
-  try {
-    const newUser = new User(req.body);
-    const savedUser = await newUser.save();
-    res.status(201).json(savedUser);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+/**
+ * @route GET /api/user/test
+ * @desc Test endpoint (protected)
+ * @access Private - Requires authentication
+ */
+router.get('/test', validateUserPermission, test);
 
-router.get('/', validateToken, async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// All routes below this middleware will require authentication
+router.use(validateUserPermission);
+router.get('/profile', getCurrentUserProfile);
+router.put('/update', validateUserPermission, updateUser);
+router.put('/password', validateUserPermission, updatePassword);
 
 module.exports = router;
